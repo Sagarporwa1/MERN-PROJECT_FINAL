@@ -1090,6 +1090,14 @@ body {
     grid-template-columns: 1fr;
   }
   
+  .suggestions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .input-group {
+    flex-direction: column;
+  }
+  
   .modal-content {
     margin: 1rem;
   }
@@ -1110,6 +1118,19 @@ body {
     grid-template-columns: 1fr;
     text-align: center;
   }
+  
+  .share-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .modal-actions {
+    gap: 0.5rem;
+  }
+  
+  .action-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1123,6 +1144,10 @@ body {
   }
   
   .recipe-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .share-options {
     grid-template-columns: 1fr;
   }
 }

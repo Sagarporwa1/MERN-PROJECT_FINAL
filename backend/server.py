@@ -294,7 +294,7 @@ async def delete_recipe(recipe_id: str):
     
     return {"message": "Recipe deleted successfully"}
 
-# Featured/trending recipes
+# Featured/trending recipes (must come before parameterized routes)
 @app.get("/api/recipes/featured")
 async def get_featured_recipes():
     """Get featured recipes (most recent for now)"""
@@ -303,7 +303,7 @@ async def get_featured_recipes():
     
     return {"recipes": [Recipe(**recipe) for recipe in recipes]}
 
-# Smart recipe suggestions endpoint
+# Smart recipe suggestions endpoint (must come before parameterized routes)
 @app.post("/api/recipes/suggestions")
 async def get_recipe_suggestions(request: IngredientSuggestionRequest):
     """Get recipe suggestions based on available ingredients"""

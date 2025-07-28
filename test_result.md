@@ -165,6 +165,21 @@ backend:
         agent: "main"
         comment: "Database connection established. Can store and retrieve recipes successfully."
 
+  - task: "Featured Recipes"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "Found critical route ordering issue - /api/recipes/featured was being matched by /api/recipes/{recipe_id} route, causing 404 errors"
+      - working: true
+        agent: "testing"
+        comment: "Fixed route ordering by moving featured recipes and suggestions endpoints before parameterized routes. Endpoint now working correctly."
+
 frontend:
   - task: "Frontend Build and Compilation"
     implemented: true

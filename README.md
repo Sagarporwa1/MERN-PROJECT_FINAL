@@ -2,7 +2,7 @@
 
 A modern, full-stack recipe sharing platform built with React, FastAPI, and MongoDB. Features real YouTube API integration, Material Design light theme, enhanced custom cursor experience, AI-powered smart suggestions, and social sharing capabilities.
 
-![RecipeCore Preview](https://images.unsplash.com/photo-1528712306091-ed0763094c98?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHxjb29raW5nfGVufDB8fHx8MTc1MzcwNjY0M3ww&ixlib=rb-4.1.0&q=85)
+
 
 ## 🌟 Features
 

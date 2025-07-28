@@ -39,6 +39,291 @@ const CustomCursor = () => {
   );
 };
 
+// Add Recipe Modal Component
+const AddRecipeModal = ({ isOpen, onClose, onRecipeAdded }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    ingredients: [''],
+    instructions: [''],
+    prep_time: '',
+    cook_time: '',
+    servings: '',
+    difficulty: 'Easy',
+    cuisine: '',
+    image_url: ''
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleArrayChange = (index, value, field) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].map((item, i) => i === index ? value : item)
+    }));
+  };
+
+  const addArrayItem = (field) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: [...prev[field], '']
+    }));
+  };
+
+  const removeArrayItem = (index, field) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const submitData = {
+        ...formData,
+        prep_time: parseInt(formData.prep_time),
+        cook_time: parseInt(formData.cook_time),
+        servings: parseInt(formData.servings),
+        ingredients: formData.ingredients.filter(ing => ing.trim()),
+        instructions: formData.instructions.filter(inst => inst.trim())
+      };
+
+      await axios.post(`${API_BASE_URL}/api/recipes`, submitData);
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        ingredients: [''],
+        instructions: [''],
+        prep_time: '',
+        cook_time: '',
+        servings: '',
+        difficulty: 'Easy',
+        cuisine: '',
+        image_url: ''
+      });
+      
+      onRecipeAdded();
+      onClose();
+    } catch (error) {
+      console.error('Error creating recipe:', error);
+      alert('Failed to create recipe. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="add-recipe-modal glass-effect" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Add New Recipe</h2>
+          <button className="modal-close" onClick={onClose}>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="add-recipe-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label>Recipe Title *</label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                required
+                placeholder="e.g., Classic Spaghetti Carbonara"
+              />
+            </div>
+            <div className="form-group">
+              <label>Image URL</label>
+              <input
+                type="url"
+                name="image_url"
+                value={formData.image_url}
+                onChange={handleInputChange}
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Description *</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              required
+              rows="3"
+              placeholder="Describe your delicious recipe..."
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Prep Time (minutes) *</label>
+              <input
+                type="number"
+                name="prep_time"
+                value={formData.prep_time}
+                onChange={handleInputChange}
+                required
+                min="1"
+              />
+            </div>
+            <div className="form-group">
+              <label>Cook Time (minutes) *</label>
+              <input
+                type="number"
+                name="cook_time"
+                value={formData.cook_time}
+                onChange={handleInputChange}
+                required
+                min="1"
+              />
+            </div>
+            <div className="form-group">
+              <label>Servings *</label>
+              <input
+                type="number"
+                name="servings"
+                value={formData.servings}
+                onChange={handleInputChange}
+                required
+                min="1"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Difficulty *</label>
+              <select
+                name="difficulty"
+                value={formData.difficulty}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Cuisine</label>
+              <input
+                type="text"
+                name="cuisine"
+                value={formData.cuisine}
+                onChange={handleInputChange}
+                placeholder="e.g., Italian, Mexican, Asian"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Ingredients *</label>
+            {formData.ingredients.map((ingredient, index) => (
+              <div key={index} className="array-input">
+                <input
+                  type="text"
+                  value={ingredient}
+                  onChange={(e) => handleArrayChange(index, e.target.value, 'ingredients')}
+                  placeholder={`Ingredient ${index + 1}`}
+                  required={index === 0}
+                />
+                {formData.ingredients.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeArrayItem(index, 'ingredients')}
+                    className="remove-btn"
+                  >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => addArrayItem('ingredients')}
+              className="add-btn"
+            >
+              + Add Ingredient
+            </button>
+          </div>
+
+          <div className="form-group">
+            <label>Instructions *</label>
+            {formData.instructions.map((instruction, index) => (
+              <div key={index} className="array-input">
+                <textarea
+                  value={instruction}
+                  onChange={(e) => handleArrayChange(index, e.target.value, 'instructions')}
+                  placeholder={`Step ${index + 1}`}
+                  rows="2"
+                  required={index === 0}
+                />
+                {formData.instructions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeArrayItem(index, 'instructions')}
+                    className="remove-btn"
+                  >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => addArrayItem('instructions')}
+              className="add-btn"
+            >
+              + Add Step
+            </button>
+          </div>
+
+          <div className="form-actions">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? (
+                <>
+                  <div className="spinner-small"></div>
+                  Creating...
+                </>
+              ) : (
+                'Create Recipe'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Smart Suggestions Component
 const SmartSuggestions = ({ onSuggestionSelect }) => {
   const [availableIngredients, setAvailableIngredients] = useState('');
@@ -322,7 +607,7 @@ const ShareRecipe = ({ recipe, isVisible, onClose }) => {
 };
 
 // Hero section component
-const HeroSection = () => {
+const HeroSection = ({ onAddRecipe }) => {
   return (
     <div className="hero-section">
       <div className="hero-content">
@@ -342,10 +627,10 @@ const HeroSection = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </button>
-            <button className="btn-secondary" onClick={() => document.querySelector('.smart-suggestions-section').scrollIntoView({ behavior: 'smooth' })}>
-              <span>Smart Suggestions</span>
+            <button className="btn-secondary" onClick={onAddRecipe}>
+              <span>Add Recipe</span>
               <svg className="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </button>
           </div>
@@ -428,6 +713,7 @@ const RecipeModal = ({ recipe, isOpen, onClose, youtubeVideos, onSearchYoutube, 
       await onSearchYoutube(searchQuery);
     } catch (error) {
       console.error('YouTube search error:', error);
+      alert('Failed to search YouTube. Please try again.');
     } finally {
       setIsSearching(false);
     }
@@ -560,6 +846,7 @@ const App = () => {
   const [youtubeVideos, setYoutubeVideos] = useState([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [recipeToShare, setRecipeToShare] = useState(null);
+  const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
 
   // Fetch recipes
   const fetchRecipes = async (search = '') => {
@@ -585,6 +872,7 @@ const App = () => {
       setYoutubeVideos(response.data.videos);
     } catch (error) {
       console.error('Error searching YouTube:', error);
+      throw error;
     }
   };
 
@@ -605,6 +893,11 @@ const App = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     fetchRecipes(searchQuery);
+  };
+
+  // Handle recipe added
+  const handleRecipeAdded = () => {
+    fetchRecipes(); // Refresh the recipes list
   };
 
   // Initial load
@@ -641,11 +934,21 @@ const App = () => {
               Search
             </button>
           </form>
+
+          <button 
+            className="add-recipe-nav-btn btn-primary"
+            onClick={() => setShowAddRecipeModal(true)}
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Recipe
+          </button>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <HeroSection />
+      <HeroSection onAddRecipe={() => setShowAddRecipeModal(true)} />
 
       {/* Smart Suggestions Section */}
       <SmartSuggestions onSuggestionSelect={handleViewRecipe} />
@@ -675,7 +978,14 @@ const App = () => {
                 </svg>
               </div>
               <h3>No recipes found</h3>
-              <p>Try adjusting your search or check back later for new recipes!</p>
+              <p>Try adjusting your search or add a new recipe!</p>
+              <button 
+                className="btn-primary"
+                onClick={() => setShowAddRecipeModal(true)}
+                style={{ marginTop: '1rem' }}
+              >
+                Add Your First Recipe
+              </button>
             </div>
           ) : (
             <div className="recipes-grid">
@@ -691,6 +1001,13 @@ const App = () => {
           )}
         </div>
       </section>
+
+      {/* Add Recipe Modal */}
+      <AddRecipeModal
+        isOpen={showAddRecipeModal}
+        onClose={() => setShowAddRecipeModal(false)}
+        onRecipeAdded={handleRecipeAdded}
+      />
 
       {/* Recipe Modal */}
       <RecipeModal

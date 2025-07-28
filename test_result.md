@@ -231,8 +231,25 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+  - task: "React DOM Error Fix"
+    implemented: true
+    working: true
+    file: "package.json"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "User reported 'Target container is not a DOM element' error with React 19 and react-scripts 5.0.1 compatibility issue"
+      - working: true
+        agent: "main"
+        comment: "Fixed by downgrading React from v19.0.0 to v18.3.1 and react-router-dom to v6.28.1 for compatibility with react-scripts 5.0.1. App now loads without DOM errors."
+
 agent_communication:
   - agent: "main"
     message: "Project analysis complete. Backend and frontend are working correctly. Fixed frontend deprecation warnings. Added sample data for testing. All major functionality is operational."
   - agent: "testing"
     message: "Comprehensive backend API testing completed. Found and fixed critical route ordering issue in FastAPI that was causing /api/recipes/featured endpoint to return 404. All 8 backend endpoints now working correctly including CRUD operations, YouTube integration, search, featured recipes, and smart suggestions. Backend is fully functional."
+  - agent: "main"
+    message: "Fixed critical React DOM error 'Target container is not a DOM element' by resolving React 19 compatibility issues with react-scripts 5.0.1. Downgraded to React 18.3.1 and compatible router version. Frontend now loads successfully without errors."

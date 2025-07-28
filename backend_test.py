@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class RecipeCoreAPITester:
-    def __init__(self, base_url: str = "https://78062c8d-dbc8-4f4e-8215-aa6b701f4cc6.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://e21ccedc-451c-402d-bb39-b76413993eb2.preview.emergentagent.com"):
         self.base_url = base_url.rstrip('/')
         self.tests_run = 0
         self.tests_passed = 0

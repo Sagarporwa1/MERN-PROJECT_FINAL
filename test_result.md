@@ -143,15 +143,18 @@ backend:
 
   - task: "Smart Recipe Suggestions"
     implemented: true
-    working: true
+    working: false
     file: "server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
     status_history:
       - working: true
         agent: "main"
         comment: "Ingredient matching algorithm working correctly. Returns suggestions with match scores."
+      - working: false
+        agent: "user"
+        comment: "User reported: smart suggestion is not working"
 
   - task: "MongoDB Database Connection"
     implemented: true

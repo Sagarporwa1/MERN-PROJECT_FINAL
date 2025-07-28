@@ -550,6 +550,432 @@ const RecipeModal = ({ recipe, isOpen, onClose, youtubeVideos, onSearchYoutube, 
   );
 };
 
+// Recipe Form Component
+const RecipeForm = ({ onRecipeAdded }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    ingredients: [''],
+    instructions: [''],
+    prep_time: '',
+    cook_time: '',
+    servings: '',
+    difficulty: 'Easy',
+    cuisine: '',
+    image_url: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleArrayChange = (index, value, field) => {
+    const newArray = [...formData[field]];
+    newArray[index] = value;
+    setFormData(prev => ({
+      ...prev,
+      [field]: newArray
+    }));
+  };
+
+  const addArrayItem = (field) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: [...prev[field], '']
+    }));
+  };
+
+  const removeArrayItem = (index, field) => {
+    const newArray = formData[field].filter((_, i) => i !== index);
+    setFormData(prev => ({
+      ...prev,
+      [field]: newArray
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const submitData = {
+        ...formData,
+        prep_time: parseInt(formData.prep_time),
+        cook_time: parseInt(formData.cook_time),
+        servings: parseInt(formData.servings),
+        ingredients: formData.ingredients.filter(ing => ing.trim() !== ''),
+        instructions: formData.instructions.filter(inst => inst.trim() !== '')
+      };
+
+      const response = await axios.post(`${API_BASE_URL}/api/recipes`, submitData);
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        ingredients: [''],
+        instructions: [''],
+        prep_time: '',
+        cook_time: '',
+        servings: '',
+        difficulty: 'Easy',
+        cuisine: '',
+        image_url: ''
+      });
+      
+      setShowForm(false);
+      onRecipeAdded(response.data);
+      alert('Recipe added successfully!');
+    } catch (error) {
+      console.error('Error adding recipe:', error);
+      alert('Error adding recipe. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="add-recipe-section">
+      <div className="container">
+        {!showForm ? (
+          <div className="add-recipe-prompt">
+            <h2 className="section-title">🍳 Share Your Recipe</h2>
+            <p className="section-subtitle">Have a delicious recipe to share? Add it to our community!</p>
+            <button 
+              className="btn-primary"
+              onClick={() => setShowForm(true)}
+            >
+              <svg className="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add New Recipe
+            </button>
+          </div>
+        ) : (
+          <div className="recipe-form-container glass-effect">
+            <div className="form-header">
+              <h2>Add New Recipe</h2>
+              <button 
+                className="modal-close"
+                onClick={() => setShowForm(false)}
+                type="button"
+              >
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="recipe-form">
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Recipe Title *</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="e.g., Classic Chocolate Chip Cookies"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Cuisine Type</label>
+                  <input
+                    type="text"
+                    name="cuisine"
+                    value={formData.cuisine}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Italian, Mexican, Asian"
+                  />
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Description *</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    required
+                    rows="3"
+                    placeholder="Describe your recipe..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Prep Time (minutes) *</label>
+                  <input
+                    type="number"
+                    name="prep_time"
+                    value={formData.prep_time}
+                    onChange={handleInputChange}
+                    required
+                    min="1"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Cook Time (minutes) *</label>
+                  <input
+                    type="number"
+                    name="cook_time"
+                    value={formData.cook_time}
+                    onChange={handleInputChange}
+                    required
+                    min="1"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Servings *</label>
+                  <input
+                    type="number"
+                    name="servings"
+                    value={formData.servings}
+                    onChange={handleInputChange}
+                    required
+                    min="1"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Difficulty *</label>
+                  <select
+                    name="difficulty"
+                    value={formData.difficulty}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                  </select>
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Image URL</label>
+                  <input
+                    type="url"
+                    name="image_url"
+                    value={formData.image_url}
+                    onChange={handleInputChange}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="ingredients-section">
+                <label>Ingredients *</label>
+                {formData.ingredients.map((ingredient, index) => (
+                  <div key={index} className="array-input-group">
+                    <input
+                      type="text"
+                      value={ingredient}
+                      onChange={(e) => handleArrayChange(index, e.target.value, 'ingredients')}
+                      placeholder={`Ingredient ${index + 1}`}
+                      required={index === 0}
+                    />
+                    {formData.ingredients.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeArrayItem(index, 'ingredients')}
+                        className="remove-btn"
+                      >
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addArrayItem('ingredients')}
+                  className="add-item-btn"
+                >
+                  + Add Ingredient
+                </button>
+              </div>
+
+              <div className="instructions-section">
+                <label>Instructions *</label>
+                {formData.instructions.map((instruction, index) => (
+                  <div key={index} className="array-input-group">
+                    <div className="step-number">{index + 1}</div>
+                    <textarea
+                      value={instruction}
+                      onChange={(e) => handleArrayChange(index, e.target.value, 'instructions')}
+                      placeholder={`Step ${index + 1}`}
+                      rows="2"
+                      required={index === 0}
+                    />
+                    {formData.instructions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeArrayItem(index, 'instructions')}
+                        className="remove-btn"
+                      >
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addArrayItem('instructions')}
+                  className="add-item-btn"
+                >
+                  + Add Step
+                </button>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary"
+                >
+                  {loading ? (
+                    <>
+                      <div className="spinner-small"></div>
+                      Adding Recipe...
+                    </>
+                  ) : (
+                    'Add Recipe'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+// YouTube Search Component
+const YouTubeSearch = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/youtube/search`, {
+        params: { q: searchQuery, max_results: 12 }
+      });
+      setVideos(response.data.videos);
+    } catch (error) {
+      console.error('Error searching YouTube:', error);
+      alert('Error searching videos. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="youtube-search-section">
+      <div className="container">
+        <div className="section-header">
+          <h2 className="section-title">📺 Cooking Video Library</h2>
+          <p className="section-subtitle">
+            Search for cooking tutorials, techniques, and recipe videos from YouTube
+          </p>
+        </div>
+
+        <form onSubmit={handleSearch} className="youtube-search-form glass-effect">
+          <div className="search-input-group">
+            <svg className="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search for cooking videos... (e.g., pasta recipes, baking tips)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="youtube-search-input"
+            />
+            <button 
+              type="submit" 
+              disabled={loading || !searchQuery.trim()}
+              className="youtube-search-btn"
+            >
+              {loading ? (
+                <>
+                  <div className="spinner-small"></div>
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <svg className="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  Search Videos
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {videos.length > 0 && (
+          <div className="youtube-results">
+            <h3>Search Results ({videos.length} videos)</h3>
+            <div className="youtube-videos-grid">
+              {videos.map((video) => (
+                <div key={video.video_id} className="youtube-video-card glass-effect">
+                  <div className="video-thumbnail">
+                    <img src={video.thumbnail} alt={video.title} />
+                    <div className="play-overlay">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="video-info">
+                    <h4 className="video-title">{video.title}</h4>
+                    <p className="video-channel">{video.channel_title}</p>
+                    <a 
+                      href={`https://www.youtube.com/watch?v=${video.video_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="watch-btn"
+                    >
+                      <svg className="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                      </svg>
+                      Watch on YouTube
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
 // Main App component
 const App = () => {
   const [recipes, setRecipes] = useState([]);

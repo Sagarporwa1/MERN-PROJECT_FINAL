@@ -1033,6 +1033,11 @@ const App = () => {
     fetchRecipes(searchQuery);
   };
 
+  // Handle recipe added
+  const handleRecipeAdded = (newRecipe) => {
+    setRecipes(prev => [newRecipe, ...prev]);
+  };
+
   // Initial load
   useEffect(() => {
     fetchRecipes();
@@ -1073,8 +1078,14 @@ const App = () => {
       {/* Hero Section */}
       <HeroSection />
 
+      {/* Add Recipe Form */}
+      <RecipeForm onRecipeAdded={handleRecipeAdded} />
+
       {/* Smart Suggestions Section */}
       <SmartSuggestions onSuggestionSelect={handleViewRecipe} />
+
+      {/* YouTube Search Section */}
+      <YouTubeSearch />
 
       {/* Featured Recipes Section */}
       <section className="recipes-section">

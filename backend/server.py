@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 import requests
+import re
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,6 +84,16 @@ class RecipeUpdate(BaseModel):
     youtube_videos: Optional[List[YouTubeVideo]] = None
     image_url: Optional[str] = None
 
+class IngredientSuggestionRequest(BaseModel):
+    available_ingredients: List[str]
+    max_results: Optional[int] = 5
+
+class RecipeSuggestion(BaseModel):
+    recipe: Recipe
+    match_score: float
+    matching_ingredients: List[str]
+    missing_ingredients: List[str]
+
 # YouTube API helper functions
 def search_youtube_videos(query: str, max_results: int = 10):
     """Search YouTube videos using the YouTube Data API"""
@@ -149,6 +160,45 @@ def get_video_details(video_id: str):
         return video
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"YouTube API error: {str(e)}")
+
+# Smart recipe suggestion helper functions
+def normalize_ingredient(ingredient: str) -> str:
+    """Normalize ingredient name for better matching"""
+    # Remove measurements, parentheses, and common modifiers
+    ingredient = re.sub(r'\d+(?:\.\d+)?\s*(?:cups?|tbsp|tsp|oz|lbs?|g|kg|ml|l|cloves?|pieces?|slices?)', '', ingredient, flags=re.IGNORECASE)
+    ingredient = re.sub(r'\([^)]*\)', '', ingredient)  # Remove parentheses
+    ingredient = re.sub(r'\b(?:fresh|dried|chopped|minced|diced|sliced|grated|to taste|optional)\b', '', ingredient, flags=re.IGNORECASE)
+    ingredient = re.sub(r'[,.]', '', ingredient)  # Remove commas and periods
+    ingredient = ingredient.strip().lower()
+    return ingredient
+
+def calculate_recipe_match(recipe_ingredients: List[str], available_ingredients: List[str]) -> tuple:
+    """Calculate how well a recipe matches available ingredients"""
+    normalized_recipe_ingredients = [normalize_ingredient(ing) for ing in recipe_ingredients]
+    normalized_available = [normalize_ingredient(ing) for ing in available_ingredients]
+    
+    matching_ingredients = []
+    missing_ingredients = []
+    
+    for recipe_ing, original_recipe_ing in zip(normalized_recipe_ingredients, recipe_ingredients):
+        found_match = False
+        for available_ing in normalized_available:
+            # Check if available ingredient contains recipe ingredient or vice versa
+            if (recipe_ing in available_ing) or (available_ing in recipe_ing) or (recipe_ing == available_ing):
+                matching_ingredients.append(original_recipe_ing)
+                found_match = True
+                break
+        
+        if not found_match:
+            missing_ingredients.append(original_recipe_ing)
+    
+    # Calculate match score (percentage of ingredients available)
+    if len(normalized_recipe_ingredients) == 0:
+        match_score = 0.0
+    else:
+        match_score = len(matching_ingredients) / len(normalized_recipe_ingredients)
+    
+    return match_score, matching_ingredients, missing_ingredients
 
 # API Routes
 
@@ -252,6 +302,43 @@ async def get_featured_recipes():
     recipes = await cursor.to_list(length=6)
     
     return {"recipes": [Recipe(**recipe) for recipe in recipes]}
+
+# Smart recipe suggestions endpoint
+@app.post("/api/recipes/suggestions")
+async def get_recipe_suggestions(request: IngredientSuggestionRequest):
+    """Get recipe suggestions based on available ingredients"""
+    if not request.available_ingredients:
+        raise HTTPException(status_code=400, detail="Please provide at least one ingredient")
+    
+    # Get all recipes from database
+    cursor = recipes_collection.find({})
+    all_recipes = await cursor.to_list(length=None)
+    
+    suggestions = []
+    
+    for recipe_data in all_recipes:
+        recipe = Recipe(**recipe_data)
+        match_score, matching_ingredients, missing_ingredients = calculate_recipe_match(
+            recipe.ingredients, request.available_ingredients
+        )
+        
+        # Only include recipes with at least 20% ingredient match
+        if match_score >= 0.2:
+            suggestion = RecipeSuggestion(
+                recipe=recipe,
+                match_score=match_score,
+                matching_ingredients=matching_ingredients,
+                missing_ingredients=missing_ingredients
+            )
+            suggestions.append(suggestion)
+    
+    # Sort by match score (highest first)
+    suggestions.sort(key=lambda x: x.match_score, reverse=True)
+    
+    # Limit results
+    suggestions = suggestions[:request.max_results]
+    
+    return {"suggestions": suggestions}
 
 if __name__ == "__main__":
     import uvicorn

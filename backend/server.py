@@ -253,6 +253,52 @@ async def get_recipes(skip: int = 0, limit: int = 20, search: Optional[str] = No
     
     return {"recipes": [Recipe(**recipe) for recipe in recipes]}
 
+# Featured/trending recipes (must come before parameterized routes)
+@app.get("/api/recipes/featured")
+async def get_featured_recipes():
+    """Get featured recipes (most recent for now)"""
+    cursor = recipes_collection.find({}).sort("created_at", -1).limit(6)
+    recipes = await cursor.to_list(length=6)
+    
+    return {"recipes": [Recipe(**recipe) for recipe in recipes]}
+
+# Smart recipe suggestions endpoint (must come before parameterized routes)
+@app.post("/api/recipes/suggestions")
+async def get_recipe_suggestions(request: IngredientSuggestionRequest):
+    """Get recipe suggestions based on available ingredients"""
+    if not request.available_ingredients:
+        raise HTTPException(status_code=400, detail="Please provide at least one ingredient")
+    
+    # Get all recipes from database
+    cursor = recipes_collection.find({})
+    all_recipes = await cursor.to_list(length=None)
+    
+    suggestions = []
+    
+    for recipe_data in all_recipes:
+        recipe = Recipe(**recipe_data)
+        match_score, matching_ingredients, missing_ingredients = calculate_recipe_match(
+            recipe.ingredients, request.available_ingredients
+        )
+        
+        # Only include recipes with at least 20% ingredient match
+        if match_score >= 0.2:
+            suggestion = RecipeSuggestion(
+                recipe=recipe,
+                match_score=match_score,
+                matching_ingredients=matching_ingredients,
+                missing_ingredients=missing_ingredients
+            )
+            suggestions.append(suggestion)
+    
+    # Sort by match score (highest first)
+    suggestions.sort(key=lambda x: x.match_score, reverse=True)
+    
+    # Limit results
+    suggestions = suggestions[:request.max_results]
+    
+    return {"suggestions": suggestions}
+
 @app.get("/api/recipes/{recipe_id}", response_model=Recipe)
 async def get_recipe(recipe_id: str):
     """Get a specific recipe by ID"""

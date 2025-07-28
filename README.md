@@ -124,7 +124,7 @@ YOUTUBE_API_KEY="your_youtube_api_key_here"
 cd frontend
 
 # Install dependencies using Yarn
-yarn install
+npm install
 ```
 
 #### Step 5: Configure Frontend Environment Variables
@@ -179,7 +179,7 @@ python server.py
 cd frontend
 
 # Start React development server
-yarn start
+npm start
 
 # Your browser should automatically open to:
 # http://localhost:3000

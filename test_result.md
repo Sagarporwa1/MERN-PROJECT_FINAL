@@ -231,12 +231,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Smart Recipe Suggestions"
     - "Full end-to-end functionality test"
-  stuck_tasks: 
-    - "Smart Recipe Suggestions"
+    - "UI component testing"
+  stuck_tasks: []
   test_all: false
-  test_priority: "stuck_first"
+  test_priority: "high_first"
 
   - task: "React DOM Error Fix"
     implemented: true

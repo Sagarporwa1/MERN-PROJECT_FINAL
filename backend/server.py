@@ -1,75 +1,258 @@
-from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
-import logging
-from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import List, Optional
+import requests
 
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# Load environment variables
+load_dotenv()
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+app = FastAPI(title="RecipeCore API", version="1.0.0")
 
-# Create the main app without a prefix
-app = FastAPI()
-
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
-
-
-# Define Models
-class StatusCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-class StatusCheckCreate(BaseModel):
-    client_name: str
-
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
-
-# Include the router in the main app
-app.include_router(api_router)
-
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Database setup
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+DB_NAME = os.environ.get("DB_NAME", "recipecore")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
+recipes_collection = db.recipes
+
+# Pydantic models
+class YouTubeVideo(BaseModel):
+    video_id: str
+    title: str
+    thumbnail: str
+    channel_title: str
+    duration: Optional[str] = None
+
+class Recipe(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    ingredients: List[str]
+    instructions: List[str]
+    prep_time: int  # in minutes
+    cook_time: int  # in minutes
+    servings: int
+    difficulty: str  # Easy, Medium, Hard
+    cuisine: Optional[str] = None
+    youtube_videos: List[YouTubeVideo] = []
+    image_url: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class RecipeCreate(BaseModel):
+    title: str
+    description: str
+    ingredients: List[str]
+    instructions: List[str]
+    prep_time: int
+    cook_time: int
+    servings: int
+    difficulty: str
+    cuisine: Optional[str] = None
+    youtube_videos: List[YouTubeVideo] = []
+    image_url: Optional[str] = None
+
+class RecipeUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    ingredients: Optional[List[str]] = None
+    instructions: Optional[List[str]] = None
+    prep_time: Optional[int] = None
+    cook_time: Optional[int] = None
+    servings: Optional[int] = None
+    difficulty: Optional[str] = None
+    cuisine: Optional[str] = None
+    youtube_videos: Optional[List[YouTubeVideo]] = None
+    image_url: Optional[str] = None
+
+# YouTube API helper functions
+def search_youtube_videos(query: str, max_results: int = 10):
+    """Search YouTube videos using the YouTube Data API"""
+    if not YOUTUBE_API_KEY:
+        raise HTTPException(status_code=500, detail="YouTube API key not configured")
+    
+    url = "https://www.googleapis.com/youtube/v3/search"
+    params = {
+        "part": "snippet",
+        "q": query,
+        "type": "video",
+        "maxResults": max_results,
+        "key": YOUTUBE_API_KEY
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        videos = []
+        for item in data.get("items", []):
+            video = YouTubeVideo(
+                video_id=item["id"]["videoId"],
+                title=item["snippet"]["title"],
+                thumbnail=item["snippet"]["thumbnails"]["medium"]["url"],
+                channel_title=item["snippet"]["channelTitle"]
+            )
+            videos.append(video)
+        
+        return videos
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"YouTube API error: {str(e)}")
+
+def get_video_details(video_id: str):
+    """Get detailed information about a specific YouTube video"""
+    if not YOUTUBE_API_KEY:
+        raise HTTPException(status_code=500, detail="YouTube API key not configured")
+    
+    url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {
+        "part": "snippet,contentDetails",
+        "id": video_id,
+        "key": YOUTUBE_API_KEY
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get("items"):
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        item = data["items"][0]
+        video = YouTubeVideo(
+            video_id=video_id,
+            title=item["snippet"]["title"],
+            thumbnail=item["snippet"]["thumbnails"]["medium"]["url"],
+            channel_title=item["snippet"]["channelTitle"],
+            duration=item["contentDetails"]["duration"]
+        )
+        
+        return video
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"YouTube API error: {str(e)}")
+
+# API Routes
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "message": "RecipeCore API is running"}
+
+# YouTube endpoints
+@app.get("/api/youtube/search")
+async def search_youtube(q: str, max_results: int = 10):
+    """Search YouTube videos for cooking content"""
+    videos = search_youtube_videos(q, max_results)
+    return {"videos": videos}
+
+@app.get("/api/youtube/video/{video_id}")
+async def get_youtube_video(video_id: str):
+    """Get details for a specific YouTube video"""
+    video = get_video_details(video_id)
+    return {"video": video}
+
+# Recipe CRUD endpoints
+@app.post("/api/recipes", response_model=Recipe)
+async def create_recipe(recipe: RecipeCreate):
+    """Create a new recipe"""
+    recipe_data = Recipe(**recipe.dict()).dict()
+    result = await recipes_collection.insert_one(recipe_data)
+    
+    if not result.inserted_id:
+        raise HTTPException(status_code=500, detail="Failed to create recipe")
+    
+    created_recipe = await recipes_collection.find_one({"id": recipe_data["id"]})
+    return Recipe(**created_recipe)
+
+@app.get("/api/recipes")
+async def get_recipes(skip: int = 0, limit: int = 20, search: Optional[str] = None):
+    """Get all recipes with optional search"""
+    filter_query = {}
+    
+    if search:
+        filter_query = {
+            "$or": [
+                {"title": {"$regex": search, "$options": "i"}},
+                {"description": {"$regex": search, "$options": "i"}},
+                {"cuisine": {"$regex": search, "$options": "i"}},
+                {"ingredients": {"$elemMatch": {"$regex": search, "$options": "i"}}}
+            ]
+        }
+    
+    cursor = recipes_collection.find(filter_query).skip(skip).limit(limit).sort("created_at", -1)
+    recipes = await cursor.to_list(length=limit)
+    
+    return {"recipes": [Recipe(**recipe) for recipe in recipes]}
+
+@app.get("/api/recipes/{recipe_id}", response_model=Recipe)
+async def get_recipe(recipe_id: str):
+    """Get a specific recipe by ID"""
+    recipe = await recipes_collection.find_one({"id": recipe_id})
+    
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    return Recipe(**recipe)
+
+@app.put("/api/recipes/{recipe_id}", response_model=Recipe)
+async def update_recipe(recipe_id: str, recipe_update: RecipeUpdate):
+    """Update a recipe"""
+    update_data = {k: v for k, v in recipe_update.dict().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No update data provided")
+    
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await recipes_collection.update_one(
+        {"id": recipe_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    updated_recipe = await recipes_collection.find_one({"id": recipe_id})
+    return Recipe(**updated_recipe)
+
+@app.delete("/api/recipes/{recipe_id}")
+async def delete_recipe(recipe_id: str):
+    """Delete a recipe"""
+    result = await recipes_collection.delete_one({"id": recipe_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    return {"message": "Recipe deleted successfully"}
+
+# Featured/trending recipes
+@app.get("/api/recipes/featured")
+async def get_featured_recipes():
+    """Get featured recipes (most recent for now)"""
+    cursor = recipes_collection.find({}).sort("created_at", -1).limit(6)
+    recipes = await cursor.to_list(length=6)
+    
+    return {"recipes": [Recipe(**recipe) for recipe in recipes]}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
